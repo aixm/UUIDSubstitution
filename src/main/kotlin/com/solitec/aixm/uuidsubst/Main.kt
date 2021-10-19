@@ -57,12 +57,14 @@ class AixmUUIDSupstCLI : CliktCommand(name = "aixm-uuid-subst", help = """
     private val outputFile by argument("<OUTPUT-FILE>", help = "The output file.").file()
 
     override fun run() {
-        val inputStream = BufferedInputStream(inputFile.inputStream())
+        val inputStream1 = BufferedInputStream(inputFile.inputStream())
         val outputStream = BufferedOutputStream(outputFile.outputStream())
-        val params = SubstitutionParams(effectiveDate, remark)
         try {
+            val idMap = IdentifierExtractor.execute(inputStream1)
+            val inputStream2 = BufferedInputStream(inputFile.inputStream())
+            val params = SubstitutionParams(effectiveDate, remark, idMap)
             outputStream.use {
-                AIXMUUIDSubstitution.execute(inputStream, outputStream, params)
+                AIXMUUIDSubstitution.execute(inputStream2, outputStream, params)
             }
         } finally {
             // to be defined

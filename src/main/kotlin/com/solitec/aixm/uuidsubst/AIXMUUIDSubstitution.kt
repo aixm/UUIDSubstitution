@@ -68,6 +68,7 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
         isNamespaceAware = true
         newDocumentBuilder().newDocument()
     }
+    private val relaxedUUIDregex = """([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})""".toRegex()
 
     override fun firstPartial(partial: Node, namespaceContext: NamespaceContextEx) {
         partialWriter = partialWriter ?: PartialXMLWriter(
@@ -88,13 +89,26 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
 
         val timeSlice = XPathTool.extractNode(feature, """aixm:timeSlice""")
 
-        regenerateGmlIds(timeSlice!!)
-        XPathTool.extractNode(timeSlice, """descendant::gml:validTime/gml:TimePeriod/gml:beginPosition""")?.also {
+        XPathTool.extractNode(timeSlice!!, """descendant::gml:validTime/gml:TimePeriod/gml:beginPosition""")?.also {
             it.textContent = params.effectiveDate.toXMLFormat()
         }
 
         XPathTool.extractNode(timeSlice, """descendant::aixm:sequenceNumber""")?.textContent = "1"
         XPathTool.extractNode(timeSlice, """descendant::aixm:correctionNumber""")?.textContent = "0"
+
+        XPathTool.extractNode(feature, """gml:identifier""")?.also {
+            val newUUID = params.idMap[it.textContent]
+            it.textContent = newUUID
+            XPathTool.extractNode(feature, """self::node()/@gml:id""")?.also {
+                it.textContent = "uuid.${newUUID}"
+            }
+        }
+
+        XPathTool.extractNodeList(feature, """descendant::node()/@xlink:href""").forEach { href ->
+            val newHrefContent = relaxedUUIDregex.findAll(href.textContent)
+                .fold(href.textContent) { acc, matchResult -> replaceIfExist(acc, matchResult.groupValues[1]) }
+            href.textContent = newHrefContent
+        }
 
         if (params.remark != null) {
             val fTimeSlice = timeSlice.firstChild
@@ -111,6 +125,15 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
             partialWriter!!.streamElement(it)
         }
 
+    }
+
+    private fun replaceIfExist(text: String, uuid: String): String {
+        val newUUID = params.idMap[uuid]
+        return if (newUUID != null) {
+            text.replace(uuid, newUUID)
+        } else {
+            text
+        }
     }
 
     /**
@@ -206,4 +229,8 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
  * @param effectiveDate The new effective date.
  * @param remark        The optional remark.
  */
-data class SubstitutionParams(val effectiveDate: XMLGregorianCalendar, val remark: String?)
+data class SubstitutionParams(
+    val effectiveDate: XMLGregorianCalendar,
+    val remark: String?,
+    val idMap: MutableMap<String, String>
+)

@@ -75,5 +75,9 @@ object AUSConstants {
             XSI_NS_ALIAS,
             XSI_NS_URI
         )
+        addNamespaceMapping(
+            XLINK_NS_ALIAS,
+            XLINK_NS_URI
+        )
     }
 }

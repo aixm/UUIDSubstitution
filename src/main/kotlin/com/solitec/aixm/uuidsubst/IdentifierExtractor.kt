@@ -33,16 +33,29 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package com.solitec.aixm.uuidsubst
 
 import org.w3c.dom.Node
+import org.xml.sax.InputSource
+import java.io.InputStream
 import java.util.*
 
 /**
  * Extracts the identifier values out of stream and stores them beside a newly generated UUID.
  */
-class IdentifierExtractor(val identifierMap: HashMap<String, String>) : AIXMPartialHandler() {
+class IdentifierExtractor() : AIXMPartialHandler() {
+
+    private val identifierMap: MutableMap<String, String> = mutableMapOf()
+
+    companion object {
+        fun execute(inputStream: InputStream): MutableMap<String, String> {
+            val identifierExtractor = IdentifierExtractor()
+            PartialDocumentHandler.parse(InputSource(inputStream), identifierExtractor)
+            return identifierExtractor.identifierMap
+        }
+    }
+
     override fun handleFeature(partial: Node, namespaceContext: NamespaceContextEx) {
         val feature = partial.firstChild
-        XPathTool.extractNode(feature, """/gml:identifier""")?.also {
-            identifierMap.put(it.textContent, UUID.randomUUID().toString())
+        XPathTool.extractNode(feature, """gml:identifier""")?.also {
+            identifierMap[it.textContent] = UUID.randomUUID().toString()
         }
     }
 }
