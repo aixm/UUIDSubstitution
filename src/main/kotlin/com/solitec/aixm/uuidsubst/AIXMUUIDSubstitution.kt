@@ -40,7 +40,6 @@ import org.xml.sax.InputSource
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.*
-import java.util.function.Consumer
 import javax.xml.datatype.XMLGregorianCalendar
 import javax.xml.parsers.DocumentBuilderFactory
 
@@ -96,9 +95,9 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
         XPathTool.extractNode(timeSlice, """descendant::aixm:sequenceNumber""")?.textContent = "1"
         XPathTool.extractNode(timeSlice, """descendant::aixm:correctionNumber""")?.textContent = "0"
 
-        XPathTool.extractNode(feature, """gml:identifier""")?.also {
-            val newUUID = params.idMap[it.textContent]
-            it.textContent = newUUID
+        XPathTool.extractNode(feature, """gml:identifier""")?.also { identifierNode ->
+            val newUUID = params.idMap[identifierNode.textContent]
+            identifierNode.textContent = newUUID
             XPathTool.extractNode(feature, """self::node()/@gml:id""")?.also {
                 it.textContent = "uuid.${newUUID}"
             }
@@ -164,18 +163,6 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
             list.add(nodeList.item(i))
         }
         return list
-    }
-
-    /**
-     * This function assignes new values to the "gml:id" attributes in the given [node] descendants.
-     *
-     * @param node  The node to be traversed.
-     */
-    private fun regenerateGmlIds(node: Node) {
-        val list = XPathTool.extractNodeList(node, """descendant::node()/@gml:id""")
-        list.forEach(Consumer { n ->
-            n.textContent = "uuid.${UUID.randomUUID()}"
-        })
     }
 
     /**

@@ -8,8 +8,12 @@ aixm-uuid-subst [OPTIONS] <EFFECTIVE-DATE> <INPUT-FILE> <OUTPUT-FILE>
 ```
 ```
 Options:
-  -r, --remark TEXT  This text will be placed in the annotation element.
-  -h, --help         Show this message and exit
+  -r, --remark TEXT       This text will be placed in the annotation element.
+  --csv-output-file PATH  A CSV output file containing the old and the new
+                          values of the identifiers.
+  --pretty                The output file will be human readable, pretty
+                          printed.
+  -h, --help              Show this message and exit
 
 Arguments:
   <EFFECTIVE-DATE>  The new effective date, e.g. "2022-12-24T00:00:00Z".

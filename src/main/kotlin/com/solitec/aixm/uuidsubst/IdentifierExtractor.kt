@@ -35,20 +35,50 @@ package com.solitec.aixm.uuidsubst
 import org.w3c.dom.Node
 import org.xml.sax.InputSource
 import java.io.InputStream
+import java.io.OutputStream
+import java.io.PrintWriter
 import java.util.*
 
 /**
  * Extracts the identifier values out of stream and stores them beside a newly generated UUID.
  */
-class IdentifierExtractor() : AIXMPartialHandler() {
+class IdentifierExtractor : AIXMPartialHandler() {
 
     private val identifierMap: MutableMap<String, String> = mutableMapOf()
 
     companion object {
+
+        /**
+         * This function takes the [inputStream] and extracts the identifiers, generate a new value (uuid v4) and
+         * returns the combination in a map.
+         *
+         * @param inputStream
+         *      An XML source.
+         *
+         * @return
+         *      A MutableMap containing the old value of the identifier as key and new one as value.
+         */
         fun execute(inputStream: InputStream): MutableMap<String, String> {
             val identifierExtractor = IdentifierExtractor()
             PartialDocumentHandler.parse(InputSource(inputStream), identifierExtractor)
             return identifierExtractor.identifierMap
+        }
+
+        /**
+         * This function generates a CSV data out of the [identifierMap] and writes them to the given [outputStream]
+         *
+         * @param identifierMap
+         *      A MutableMap which contains the original value as key and the new one as value.
+         *
+         * @param outputStream
+         *      A target OutputStream the content will be written to.
+         */
+        fun exportCSV(identifierMap: MutableMap<String, String>, outputStream: OutputStream) {
+            val printWriter = PrintWriter(outputStream)
+            printWriter.use { writer ->
+                writer.println("\"original\",\"new\"")
+                identifierMap.forEach { (old, changed) -> writer.println("\"${old}\",\"${changed}\"") }
+            }
         }
     }
 
