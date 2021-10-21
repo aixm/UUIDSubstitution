@@ -86,9 +86,21 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
     override fun handleFeature(partial: Node, namespaceContext: NamespaceContextEx) {
         val feature = partial.firstChild
 
-        val timeSlice = XPathTool.extractNode(feature, """aixm:timeSlice""")
+        val timeSlices = XPathTool.extractNodeList(feature, """aixm:timeSlice""")
+        val timeSlice = if (timeSlices.size > 1) {
+            timeSlices.map { TimesliceContainer(it) }
+                .maxByOrNull { timesliceContainer -> timesliceContainer.ordinal }!!
+                .timesliceNode
+        } else {
+            timeSlices.first()
+        }
 
-        XPathTool.extractNode(timeSlice!!, """descendant::gml:validTime/gml:TimePeriod/gml:beginPosition""")?.also {
+        if (timeSlices.size > 1) {
+            timeSlices.filter { node -> node != timeSlice }
+                .forEach { node -> feature.removeChild(node) }
+        }
+
+        XPathTool.extractNode(timeSlice, """descendant::gml:validTime/gml:TimePeriod/gml:beginPosition""")?.also {
             it.textContent = params.effectiveDate.toXMLFormat()
         }
 
@@ -97,6 +109,9 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
 
         XPathTool.extractNode(feature, """gml:identifier""")?.also { identifierNode ->
             val newUUID = params.idMap[identifierNode.textContent]
+            if (timeSlices.size > 1) {
+                println("Warning, feature with identifier ${identifierNode.textContent} contains more than 1 timeslice.")
+            }
             identifierNode.textContent = newUUID
             XPathTool.extractNode(feature, """self::node()/@gml:id""")?.also {
                 it.textContent = "uuid.${newUUID}"
@@ -213,11 +228,36 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
 /**
  * This data class encapsulate parameters for the substitution processor.
  *
- * @param effectiveDate The new effective date.
- * @param remark        The optional remark.
+ * @param effectiveDate
+ *      The new effective date.
+ * @param remark
+ *      The optional remark.
+ * @param idMap
+ *      A map containing the original and new UUID values.
  */
 data class SubstitutionParams(
     val effectiveDate: XMLGregorianCalendar,
     val remark: String?,
     val idMap: MutableMap<String, String>
 )
+
+/**
+ * This class helps to calculate the the more recent timeslice in the case more than one exists
+ *
+ * @param timesliceNode
+ *      A [Node] containing a timeslice
+ */
+class TimesliceContainer(val timesliceNode: Node) {
+    val ordinal: Int
+
+    init {
+        val seq = convertToInt(XPathTool.extractNode(timesliceNode, """descendant::aixm:sequenceNumber""")?.textContent)
+        val corr =
+            convertToInt(XPathTool.extractNode(timesliceNode, """descendant::aixm:correctionNumber""")?.textContent)
+        ordinal = seq * 10000 + corr
+    }
+
+    private fun convertToInt(text: String?): Int {
+        return text?.toInt() ?: 0
+    }
+}
