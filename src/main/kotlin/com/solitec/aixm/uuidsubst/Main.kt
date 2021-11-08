@@ -81,7 +81,7 @@ class AixmUUIDSupstCLI : CliktCommand(
         val inputStream1 = BufferedInputStream(inputFile.inputStream())
         val tempFile = File.createTempFile("uuid_subst", null)
         try {
-            val idMap = IdentifierExtractor.execute(inputStream1)
+            val (idMap, gmlIdMap) = IdentifierExtractor.execute(inputStream1)
             if (csvFile != null) {
                 val csvOutputStream = BufferedOutputStream(csvFile!!.outputStream())
                 csvOutputStream.use {
@@ -89,7 +89,7 @@ class AixmUUIDSupstCLI : CliktCommand(
                 }
             }
             val inputStream2 = BufferedInputStream(inputFile.inputStream())
-            val params = SubstitutionParams(effectiveDate, remark, idMap)
+            val params = SubstitutionParams(effectiveDate, remark, idMap, gmlIdMap)
             BufferedOutputStream(tempFile.outputStream()).use {
                 AIXMUUIDSubstitution.execute(inputStream2, it, params)
             }

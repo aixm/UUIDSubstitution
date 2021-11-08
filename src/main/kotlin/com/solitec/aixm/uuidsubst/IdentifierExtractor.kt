@@ -45,6 +45,9 @@ import java.util.*
 class IdentifierExtractor : AIXMPartialHandler() {
 
     private val identifierMap: MutableMap<String, String> = mutableMapOf()
+    private val gmlIdMap: MutableMap<String, String> = mutableMapOf()
+
+    private val relaxedGmlUUIDregex = """uuid\.([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})""".toRegex()
 
     companion object {
 
@@ -56,12 +59,14 @@ class IdentifierExtractor : AIXMPartialHandler() {
          *      An XML source.
          *
          * @return
-         *      A MutableMap containing the old value of the identifier as key and new one as value.
+         *      A Pair consisting of a MutableMap containing the old value of the identifier as key and new one as value
+         *      and a MutableMap containing the original gml:id of the feature in the case it contains a different value
+         *      than the identifier value.
          */
-        fun execute(inputStream: InputStream): MutableMap<String, String> {
+        fun execute(inputStream: InputStream): Pair<MutableMap<String, String>, MutableMap<String, String>> {
             val identifierExtractor = IdentifierExtractor()
             PartialDocumentHandler.parse(InputSource(inputStream), identifierExtractor)
-            return identifierExtractor.identifierMap
+            return Pair(identifierExtractor.identifierMap, identifierExtractor.gmlIdMap)
         }
 
         /**
@@ -82,10 +87,23 @@ class IdentifierExtractor : AIXMPartialHandler() {
         }
     }
 
+    /**
+     * Builds the original value -> new value of identifier map
+     * Builds only the gml:id entries if they don't follow the "uuid.<UUID value>" convention and the <UUID value>
+     *     doesn't match the original identifier value. This will be down for performance reasons, as every
+     *     reference must be searched then for every gml:id value.
+     */
     override fun handleFeature(partial: Node, namespaceContext: NamespaceContextEx) {
         val feature = partial.firstChild
-        XPathTool.extractNode(feature, """gml:identifier""")?.also {
-            identifierMap[it.textContent] = UUID.randomUUID().toString()
+        val newUUID = UUID.randomUUID().toString()
+        XPathTool.extractNode(feature, """gml:identifier""")?.also { identifierNode ->
+            identifierMap[identifierNode.textContent] = newUUID
+            XPathTool.extractNode(feature, """self::node()/@gml:id""")?.also { attributeNode ->
+                val matchResult = relaxedGmlUUIDregex.matchEntire(attributeNode.textContent)
+                if (matchResult == null || matchResult.groupValues[1] != identifierNode.textContent) {
+                    gmlIdMap[attributeNode.textContent] = "uuid.${newUUID}"
+                }
+            }
         }
     }
 }

@@ -119,8 +119,9 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
         }
 
         XPathTool.extractNodeList(feature, """descendant::node()/@xlink:href""").forEach { href ->
-            val newHrefContent = relaxedUUIDregex.findAll(href.textContent)
-                .fold(href.textContent) { acc, matchResult -> replaceIfExist(acc, matchResult.groupValues[1]) }
+            val checkedForGmlIds = handleGmlIdRefs(href.textContent)
+            val newHrefContent = relaxedUUIDregex.findAll(checkedForGmlIds)
+                .fold(checkedForGmlIds) { acc, matchResult -> replaceIfExist(acc, matchResult.groupValues[1]) }
             href.textContent = newHrefContent
         }
 
@@ -139,6 +140,12 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
             partialWriter!!.streamElement(it)
         }
 
+    }
+
+    private fun handleGmlIdRefs(textContent: String): String {
+        return params.gmlIdMap.entries.fold(textContent) { acc, entry ->
+            acc.replace(entry.key, entry.value)
+        }
     }
 
     private fun replaceIfExist(text: String, uuid: String): String {
@@ -238,7 +245,8 @@ class AIXMUUIDSubstitution(private val outputStream: OutputStream, private val p
 data class SubstitutionParams(
     val effectiveDate: XMLGregorianCalendar,
     val remark: String?,
-    val idMap: MutableMap<String, String>
+    val idMap: MutableMap<String, String>,
+    val gmlIdMap: MutableMap<String, String>
 )
 
 /**
